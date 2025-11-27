@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: config/Dockerfile.backend
+    container_name: canvas-grade-backend
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ../backend:/app
+      - ../data:/app/data
+      - ../uploads:/app/uploads
+      - ../exports:/app/exports
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    networks:
+      - canvas-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: config/Dockerfile.frontend
+    container_name: canvas-grade-frontend
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    networks:
+      - canvas-network
+    restart: unless-stopped
+
+networks:
+  canvas-network:
+    driver: bridge
+

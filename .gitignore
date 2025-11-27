@@ -1,0 +1,31 @@
+# Node
+node_modules/
+dist/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.python-version
+
+# Environment / config
+.env
+.env.local
+
+# Data (local, not committed)
+data/
+uploads/
+exports/
+*.md
+
+# Local docs and internal notes (keep out of repo)
+docs/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
