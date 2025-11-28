@@ -1,4 +1,4 @@
-# Frontend Dockerfile for Vue 3 + Vite
+# Frontend Dockerfile for Vue 3 + Vite with HTTPS support
 FROM node:20-alpine
 
 WORKDIR /app
@@ -12,9 +12,13 @@ RUN npm install
 # Copy application code
 COPY frontend/ .
 
-# Expose port
+# Create directory for certificates
+RUN mkdir -p /app/certs
+
+# Expose HTTPS port
 EXPOSE 5173
 
-# Run development server
+# Run development server with HTTPS
+# Certificates are mounted as a volume in docker-compose.yml
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 

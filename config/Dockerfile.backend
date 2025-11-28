@@ -1,4 +1,4 @@
-# Backend Dockerfile for FastAPI
+# Backend Dockerfile for FastAPI with HTTPS support
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -15,12 +15,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY backend/ .
 
-# Create directories for data, uploads, and exports
-RUN mkdir -p /app/data /app/uploads /app/exports
+# Create directories for data, uploads, exports, and certs
+RUN mkdir -p /app/data /app/uploads /app/exports /app/certs
 
-# Expose port
+# Expose HTTPS port
 EXPOSE 8000
 
-# Run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Run the application with SSL
+# Certificates are mounted as a volume in docker-compose.yml
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--ssl-keyfile", "/app/certs/server.key", "--ssl-certfile", "/app/certs/server.crt"]
 

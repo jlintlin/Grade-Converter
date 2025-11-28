@@ -22,6 +22,9 @@ exports/
 # Local docs and internal notes (keep out of repo)
 docs/
 
+# SSL certificates (generated locally, not committed)
+certs/
+
 # OS / editor
 .DS_Store
 Thumbs.db
