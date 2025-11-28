@@ -111,6 +111,7 @@ class ParsedGradeData(BaseModel):
     students: List[Dict[str, Any]]
     assignment_columns: List[str]
     read_only_columns: List[str] = []
+    original_filename: str = ""
     assignment_info: Dict[str, AssignmentInfo]
     metadata_columns: List[str]
     sections: List[str]
@@ -270,7 +271,8 @@ async def upload_grades(file: UploadFile = File(...)):
             assignment_info=assignment_info,
             metadata_columns=metadata_cols_present,
             sections=sections,
-            row_count=len(students)
+            row_count=len(students),
+            original_filename=file.filename or ""
         )
 
     except Exception as e:
@@ -304,10 +306,17 @@ async def delete_session(session_id: str):
     return {"status": "not_found", "session_id": session_id}
 
 
+class ReplacementRule(BaseModel):
+    """A replacement rule: one assignment can replace the lowest of target assignments"""
+    replacer: str  # The assignment that can replace others
+    targets: List[str]  # The assignments that can be replaced
+
+
 class CalculateGradesRequest(BaseModel):
     session_id: str
     categories: List[GradeCategory]
     grading_scale: Dict[str, float] = DEFAULT_GRADING_SCALE
+    replacement_rules: Dict[str, List[str]] = {}  # Maps replacer assignment to list of target assignments
 
 
 @app.get("/api/grading-scale/default")
@@ -322,16 +331,86 @@ async def get_default_grading_scale():
     }
 
 
+def _get_assignment_percentage(student: Dict, assignment: str, points_possible: Dict) -> Optional[float]:
+    """Get the percentage score for an assignment, or None if not available."""
+    try:
+        score_val = student.get(assignment, '')
+        points_max = points_possible.get(assignment)
+        if score_val != '' and points_max and points_max > 0:
+            score = float(score_val)
+            return (score / points_max) * 100
+    except (ValueError, TypeError):
+        pass
+    return None
+
+
+def _apply_replacement_rules(
+    student: Dict,
+    points_possible: Dict,
+    replacement_rules: Dict[str, List[str]],
+    category_assignments: Dict[str, List[str]]
+) -> Dict:
+    """
+    Apply replacement rules for a student.
+    Returns a dict with:
+      - 'replaced_scores': dict mapping target assignment to new score
+      - 'replacement_info': list of replacement details for display
+    """
+    replaced_scores = {}
+    replacement_info = []
+
+    for replacer, targets in replacement_rules.items():
+        replacer_score = _get_assignment_percentage(student, replacer, points_possible)
+        if replacer_score is None:
+            continue
+
+        # Find the lowest score among targets that the replacer can improve
+        lowest_target = None
+        lowest_score = None
+
+        for target in targets:
+            target_score = _get_assignment_percentage(student, target, points_possible)
+            if target_score is not None and target_score < replacer_score:
+                if lowest_score is None or target_score < lowest_score:
+                    lowest_score = target_score
+                    lowest_target = target
+
+        # Apply replacement if we found a target to replace
+        if lowest_target is not None:
+            replaced_scores[lowest_target] = replacer_score
+            # Find which category the target belongs to
+            target_category = None
+            for cat_name, assignments in category_assignments.items():
+                if lowest_target in assignments:
+                    target_category = cat_name
+                    break
+
+            replacement_info.append({
+                'replacer': replacer,
+                'replaced': lowest_target,
+                'original_score': round(lowest_score, 2),
+                'new_score': round(replacer_score, 2),
+                'improvement': round(replacer_score - lowest_score, 2),
+                'category': target_category
+            })
+
+    return {
+        'replaced_scores': replaced_scores,
+        'replacement_info': replacement_info
+    }
+
+
 @app.post("/api/calculate")
 async def calculate_grades(request: CalculateGradesRequest):
     """
     Calculate final grades based on user-defined categories and weights.
 
     This performs the actual grade calculation:
-    1. For each category, calculate the weighted average of assigned assignments
-    2. Apply drop-lowest rules if specified
-    3. Calculate the final weighted grade
-    4. Assign letter grades based on the grading scale
+    1. Apply replacement rules if any
+    2. For each category, calculate the weighted average of assigned assignments
+    3. Apply drop-lowest rules if specified
+    4. Calculate the final weighted grade
+    5. Assign letter grades based on the grading scale
     """
     if request.session_id not in session_storage:
         raise HTTPException(status_code=404, detail="Session not found or expired")
@@ -350,6 +429,9 @@ async def calculate_grades(request: CalculateGradesRequest):
             detail=f"Category weights must sum to 100% (currently {total_weight}%)"
         )
 
+    # Build category assignments map for replacement tracking
+    category_assignments = {cat.name: cat.assignments for cat in request.categories}
+
     calculated_results = []
 
     for student in students:
@@ -359,8 +441,19 @@ async def calculate_grades(request: CalculateGradesRequest):
             'SIS User ID': student.get('SIS User ID', ''),
             'category_scores': {},
             'final_percentage': 0.0,
-            'letter_grade': 'F'
+            'letter_grade': 'F',
+            'replacement_info': None
         }
+
+        # Apply replacement rules if any
+        replaced_scores = {}
+        if request.replacement_rules:
+            replacement_result = _apply_replacement_rules(
+                student, points_possible, request.replacement_rules, category_assignments
+            )
+            replaced_scores = replacement_result['replaced_scores']
+            if replacement_result['replacement_info']:
+                student_result['replacement_info'] = replacement_result['replacement_info']
 
         final_score = 0.0
 
@@ -368,19 +461,16 @@ async def calculate_grades(request: CalculateGradesRequest):
             if not category.assignments:
                 continue
 
-            # Collect scores for this category
+            # Collect scores for this category (with replacements applied)
             scores = []
             for assignment in category.assignments:
-                try:
-                    score_val = student.get(assignment, '')
-                    points_max = points_possible.get(assignment)
-
-                    if score_val != '' and points_max and points_max > 0:
-                        score = float(score_val)
-                        percentage = (score / points_max) * 100
+                # Check if this assignment was replaced
+                if assignment in replaced_scores:
+                    scores.append(replaced_scores[assignment])
+                else:
+                    percentage = _get_assignment_percentage(student, assignment, points_possible)
+                    if percentage is not None:
                         scores.append(percentage)
-                except (ValueError, TypeError):
-                    continue
 
             # Apply drop lowest
             if category.drop_lowest > 0 and len(scores) > category.drop_lowest:

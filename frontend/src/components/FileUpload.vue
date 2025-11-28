@@ -100,20 +100,20 @@ function clearFile() {
             : 'border-base-300 hover:border-primary/50 hover:bg-base-200'
         ]"
       >
-        <div v-if="!selectedFile">
-          <div class="avatar placeholder mb-4">
-            <div class="bg-neutral text-neutral-content rounded-full w-20">
-              <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                  d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
+        <div v-if="!selectedFile" class="flex flex-col items-center justify-center">
+          <!-- Upload Icon -->
+          <div class="w-24 h-24 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center mb-6">
+            <svg class="w-12 h-12 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
           </div>
-          <p class="text-lg font-medium text-base-content">Drag and drop your Canvas CSV file here</p>
-          <div class="divider my-4">OR</div>
+          <p class="text-xl font-semibold text-base-content mb-1">Drag and drop your Canvas CSV file here</p>
+          <p class="text-sm text-base-content/60 mb-4">Supports gradebook exports from Canvas LMS</p>
+          <div class="divider my-4 w-48 mx-auto text-base-content/50 font-medium">OR</div>
           <label class="btn btn-primary btn-lg gap-2">
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
             </svg>
             Browse Files
             <input type="file" accept=".csv" class="hidden" @change="handleFileSelect" />
@@ -121,13 +121,12 @@ function clearFile() {
         </div>
 
         <!-- Selected File -->
-        <div v-else class="text-center">
-          <div class="avatar placeholder mb-4">
-            <div class="bg-success text-success-content rounded-full w-20">
-              <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
+        <div v-else class="flex flex-col items-center justify-center text-center">
+          <!-- Success Icon -->
+          <div class="w-24 h-24 rounded-full bg-gradient-to-br from-success/20 to-success/10 flex items-center justify-center mb-6">
+            <svg class="w-12 h-12 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
           </div>
           <p class="text-xl font-bold text-base-content">{{ selectedFile.name }}</p>
           <p class="text-base-content/60 mt-1">{{ (selectedFile.size / 1024).toFixed(1) }} KB</p>

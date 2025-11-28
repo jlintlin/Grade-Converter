@@ -43,9 +43,11 @@ case "$COMMAND" in
         cd "$CONFIG_DIR" && docker compose up --build -d
         print_status "Services started!"
         echo ""
-        echo "  Frontend: http://localhost:5173"
-        echo "  Backend:  http://localhost:8000"
-        echo "  API Docs: http://localhost:8000/docs"
+        echo "  Frontend: https://localhost:5173"
+        echo "  Backend:  https://localhost:8000"
+        echo "  API Docs: https://localhost:8000/docs"
+        echo ""
+        echo "If your browser shows 'Not secure', run scripts/dev-cert-setup.sh once to install a trusted local cert, then rerun: ./start.sh rebuild"
         echo ""
         ;;
     "down"|"stop")
@@ -83,4 +85,3 @@ case "$COMMAND" in
         exit 1
         ;;
 esac
-

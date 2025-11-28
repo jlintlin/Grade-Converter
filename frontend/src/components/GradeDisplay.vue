@@ -9,18 +9,11 @@ const searchQuery = ref('')
 const sortColumn = ref('Student')
 const sortDirection = ref('asc')
 const currentPage = ref(1)
-const pageSize = ref(25)
-const visibleAssignmentCount = ref(8)
+const pageSize = ref(50)
+const sectionFilter = ref('all')
 
 // Columns to always display (in order)
-const primaryColumns = ['Student', 'ID', 'SIS User ID', 'SIS Login ID']
-
-// Display columns - metadata + visible assignments
-const displayColumns = computed(() => {
-  const cols = primaryColumns.filter(c => props.gradeData.metadata_columns?.includes(c))
-  const assignments = props.gradeData.assignment_columns?.slice(0, visibleAssignmentCount.value) || []
-  return [...cols, ...assignments]
-})
+const primaryColumns = ['Student', 'ID', 'Section']
 
 // All assignment columns
 const assignmentColumns = computed(() => props.gradeData.assignment_columns || [])
@@ -31,15 +24,26 @@ const sections = computed(() => props.gradeData.sections || [])
 // Assignment info
 const assignmentInfo = computed(() => props.gradeData.assignment_info || {})
 
+
+
 // Filtered and sorted students
 const filteredStudents = computed(() => {
   let students = [...props.gradeData.students]
+
+  // Filter by section
+  if (sectionFilter.value !== 'all') {
+    students = students.filter(s => s.Section === sectionFilter.value)
+  }
+
+  // Filter by search query
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
     students = students.filter(s =>
       Object.values(s).some(v => String(v).toLowerCase().includes(query))
     )
   }
+
+  // Sort
   students.sort((a, b) => {
     const valA = a[sortColumn.value] || ''
     const valB = b[sortColumn.value] || ''
@@ -57,16 +61,6 @@ const paginatedStudents = computed(() => {
 
 const totalPages = computed(() => Math.ceil(filteredStudents.value.length / pageSize.value))
 
-// Check if there are more assignments to show
-const hasMoreAssignments = computed(() =>
-  visibleAssignmentCount.value < assignmentColumns.value.length
-)
-
-// Check if showing all assignments
-const showingAllAssignments = computed(() =>
-  visibleAssignmentCount.value >= assignmentColumns.value.length
-)
-
 function toggleSort(column) {
   if (sortColumn.value === column) {
     sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
@@ -78,7 +72,13 @@ function toggleSort(column) {
 }
 
 function getShortColumnName(col) {
-  return col.length > 20 ? col.substring(0, 20) + '...' : col
+  // For assignment columns, try to extract a cleaner name
+  if (!primaryColumns.includes(col)) {
+    // Remove common Canvas suffixes like (12345) assignment IDs
+    const cleaned = col.replace(/\s*\(\d+\)\s*$/, '').trim()
+    return cleaned.length > 25 ? cleaned.substring(0, 25) + '...' : cleaned
+  }
+  return col
 }
 
 function getPointsPossible(col) {
@@ -90,8 +90,8 @@ function calculatePercentage(value, col) {
   if (value === null || value === undefined || value === '') return null
   const pointsPossible = getPointsPossible(col)
   if (!pointsPossible || pointsPossible <= 0) return null
-  const num = parseFloat(value)
-  if (isNaN(num)) return null
+  const num = Number.parseFloat(value)
+  if (Number.isNaN(num)) return null
   return (num / pointsPossible) * 100
 }
 
@@ -105,30 +105,19 @@ function formatCellValue(value, col) {
   // For assignment columns, show percentage
   const percentage = calculatePercentage(value, col)
   if (percentage === null) return '-'
-  return percentage.toFixed(1) + '%'
+  return percentage.toFixed(0) + '%'
 }
 
 // Get color class based on percentage
 function getPercentageClass(value, col) {
   if (primaryColumns.includes(col)) return ''
   const percentage = calculatePercentage(value, col)
-  if (percentage === null) return 'text-gray-400'
-  if (percentage >= 90) return 'text-emerald-600 font-medium'
-  if (percentage >= 80) return 'text-blue-600'
-  if (percentage >= 70) return 'text-yellow-600'
-  if (percentage >= 60) return 'text-orange-600'
-  return 'text-red-600'
-}
-
-function showMoreAssignments() {
-  visibleAssignmentCount.value = Math.min(
-    visibleAssignmentCount.value + 8,
-    assignmentColumns.value.length
-  )
-}
-
-function showFewerAssignments() {
-  visibleAssignmentCount.value = Math.max(8, visibleAssignmentCount.value - 8)
+  if (percentage === null) return 'text-base-content/40'
+  if (percentage >= 90) return 'text-success font-semibold'
+  if (percentage >= 80) return 'text-info'
+  if (percentage >= 70) return 'text-warning'
+  if (percentage >= 60) return 'text-orange-500'
+  return 'text-error'
 }
 
 function goToPage(page) {
@@ -137,106 +126,135 @@ function goToPage(page) {
 </script>
 
 <template>
-  <div class="bg-white rounded-xl shadow-lg p-6">
-    <!-- Header with summary info -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-      <div>
-        <h2 class="text-2xl font-bold text-gray-800">Grade Overview</h2>
-        <p class="text-sm text-gray-500 mt-1">
-          {{ gradeData.row_count }} students • {{ assignmentColumns.length }} assignments
-        </p>
+  <div class="w-full">
+    <!-- Header with summary and filters -->
+    <div class="bg-base-100 rounded-t-box border border-base-300 p-4">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <!-- Title and summary -->
+        <div>
+          <h2 class="text-2xl font-bold flex items-center gap-2">
+            📋 Grade Overview
+          </h2>
+          <p class="text-base-content/60 mt-1">
+            {{ filteredStudents.length }} of {{ gradeData.row_count }} students •
+            {{ assignmentColumns.length }} assignments •
+            {{ sections.length }} section(s)
+          </p>
+        </div>
+
+        <!-- Filters row -->
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Section filter -->
+          <div v-if="sections.length > 1" class="flex items-center gap-2">
+            <span class="text-sm text-base-content/60">Section:</span>
+            <select v-model="sectionFilter" class="select select-bordered select-sm">
+              <option value="all">All Sections</option>
+              <option v-for="sec in sections" :key="sec" :value="sec">{{ sec }}</option>
+            </select>
+          </div>
+
+          <!-- Search -->
+          <div class="join">
+            <div class="join-item flex items-center px-3 bg-base-200">
+              <svg class="h-4 w-4 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <input v-model="searchQuery" type="text"
+                   class="input input-bordered input-sm join-item w-48 lg:w-64"
+                   placeholder="Search students..." />
+          </div>
+        </div>
       </div>
-      <div class="relative">
-        <input v-model="searchQuery" type="text" placeholder="Search students..."
-          class="pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-72 bg-gray-50" />
-        <svg class="absolute left-3 top-3 h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
+
+      <!-- Section badges summary -->
+      <div v-if="sections.length > 0" class="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-base-200">
+        <span class="text-sm text-base-content/60">Sections:</span>
+        <button v-for="sec in sections" :key="sec"
+                @click="sectionFilter = sectionFilter === sec ? 'all' : sec"
+                :class="['badge gap-1 cursor-pointer transition-all', sectionFilter === sec ? 'badge-primary' : 'badge-outline hover:badge-primary/50']">
+          {{ sec }}
+          <span class="opacity-60">({{ gradeData.students.filter(s => s.Section === sec).length }})</span>
+        </button>
       </div>
     </div>
 
-    <!-- Section Summary -->
-    <div v-if="sections.length > 0" class="mb-4 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border border-gray-200">
-      <div class="flex items-center gap-2">
-        <svg class="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-        </svg>
-        <span class="text-sm font-semibold text-gray-700">Sections:</span>
-        <div class="flex flex-wrap gap-2">
-          <span v-for="sec in sections" :key="sec"
-                class="px-3 py-1 bg-white text-sm text-gray-600 rounded-full border border-gray-200 shadow-sm">
-            {{ sec }}
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Assignment Summary -->
-    <div class="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
-      <div class="flex items-center justify-between mb-3">
-        <div class="flex items-center gap-2">
-          <svg class="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-          </svg>
-          <span class="text-sm font-semibold text-blue-800">
-            Assignments ({{ assignmentColumns.length }})
-          </span>
-        </div>
-        <div class="flex items-center gap-2">
-          <button v-if="!showingAllAssignments" @click="showMoreAssignments"
-            class="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-100 hover:bg-blue-200 rounded-lg transition">
-            Show More (+8)
-          </button>
-          <button v-if="visibleAssignmentCount > 8" @click="showFewerAssignments"
-            class="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition">
-            Show Less
-          </button>
-        </div>
-      </div>
-      <div class="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-        <span v-for="col in assignmentColumns" :key="col"
-              class="px-3 py-1 text-xs bg-white text-blue-700 rounded-full border border-blue-200 shadow-sm cursor-default"
-              :title="`${col} (${getPointsPossible(col) || '?'} pts)`">
-          {{ col.length > 25 ? col.substring(0, 25) + '...' : col }}
-          <span v-if="getPointsPossible(col)" class="text-blue-400 ml-1">({{ getPointsPossible(col) }})</span>
-        </span>
-      </div>
-      <p class="text-xs text-blue-600 mt-3 flex items-center gap-1">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        Displaying {{ Math.min(visibleAssignmentCount, assignmentColumns.length) }} of {{ assignmentColumns.length }} assignments • Percentages shown below
-      </p>
-    </div>
-
-    <!-- Table -->
-    <div class="overflow-x-auto border border-gray-200 rounded-xl shadow-sm">
-      <table class="min-w-full">
-        <thead class="bg-gradient-to-r from-gray-50 to-gray-100">
-          <tr>
-            <th v-for="col in displayColumns" :key="col" @click="toggleSort(col)"
-              class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition whitespace-nowrap border-b border-gray-200">
+    <!-- Excel-like scrollable table container -->
+    <div class="relative overflow-auto bg-base-100 border-x border-base-300 max-h-[600px]">
+      <table class="w-full border-collapse">
+        <thead class="sticky top-0 z-30">
+          <tr class="bg-base-200/95 backdrop-blur-sm">
+            <!-- Frozen student name column -->
+            <th class="sticky left-0 z-40 bg-base-200/95 backdrop-blur-sm min-w-[220px] px-3 py-2 text-left border-b-2 border-r-2 border-base-300 shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
+              <button @click="toggleSort('Student')" class="flex items-center gap-1 hover:text-primary font-semibold">
+                <svg class="w-4 h-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Student
+                <svg v-if="sortColumn === 'Student'" class="h-3 w-3 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path v-if="sortDirection === 'asc'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+                  <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </th>
+            <!-- ID column -->
+            <th class="bg-base-200/95 backdrop-blur-sm min-w-[80px] px-2 py-2 text-left border-b-2 border-r border-base-300">
+              <button @click="toggleSort('ID')" class="flex items-center gap-1 hover:text-primary font-semibold text-xs">
+                ID
+                <svg v-if="sortColumn === 'ID'" class="h-3 w-3 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path v-if="sortDirection === 'asc'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+                  <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </th>
+            <!-- Section column -->
+            <th v-if="sections.length > 0" class="bg-base-200/95 backdrop-blur-sm min-w-[100px] px-2 py-2 text-left border-b-2 border-r border-base-300">
+              <button @click="toggleSort('Section')" class="flex items-center gap-1 hover:text-primary font-semibold text-xs">
+                Section
+                <svg v-if="sortColumn === 'Section'" class="h-3 w-3 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path v-if="sortDirection === 'asc'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+                  <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </th>
+            <!-- Assignment columns -->
+            <th v-for="col in assignmentColumns" :key="col"
+                @click="toggleSort(col)"
+                class="bg-base-200/95 backdrop-blur-sm cursor-pointer hover:bg-base-300/95 transition px-2 py-2 text-center border-b-2 border-r border-base-300 min-w-[85px]">
               <div class="flex flex-col gap-0.5">
-                <div class="flex items-center gap-1">
-                  <span :title="col">{{ getShortColumnName(col) }}</span>
-                  <svg v-if="sortColumn === col" class="h-3 w-3 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <span class="flex items-center justify-center gap-1 text-xs font-semibold" :title="col">
+                  {{ getShortColumnName(col) }}
+                  <svg v-if="sortColumn === col" class="h-3 w-3 text-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path v-if="sortDirection === 'asc'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
                     <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                   </svg>
-                </div>
-                <span v-if="getPointsPossible(col)" class="text-[10px] font-normal text-gray-400 normal-case">
+                </span>
+                <span v-if="getPointsPossible(col)" class="text-[10px] font-normal opacity-50">
                   {{ getPointsPossible(col) }} pts
                 </span>
               </div>
             </th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-100">
+        <tbody>
           <tr v-for="(student, idx) in paginatedStudents" :key="idx"
-              class="hover:bg-blue-50/50 transition-colors"
-              :class="idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'">
-            <td v-for="col in displayColumns" :key="col"
-                class="px-4 py-3 text-sm whitespace-nowrap"
+              :class="['hover:bg-primary/5 transition-colors', idx % 2 === 0 ? 'bg-base-100' : 'bg-base-50']">
+            <!-- Frozen student name -->
+            <td class="sticky left-0 z-20 px-3 py-1.5 font-medium border-r-2 border-b border-base-300 shadow-[2px_0_4px_rgba(0,0,0,0.05)]"
+                :class="idx % 2 === 0 ? 'bg-base-100' : 'bg-base-50'">
+              {{ student.Student || '-' }}
+            </td>
+            <!-- ID -->
+            <td class="px-2 py-1.5 text-xs text-base-content/60 border-r border-b border-base-200 tabular-nums">
+              {{ student.ID || '-' }}
+            </td>
+            <!-- Section -->
+            <td v-if="sections.length > 0" class="px-2 py-1.5 text-xs text-base-content/70 border-r border-b border-base-200">
+              {{ student.Section || '-' }}
+            </td>
+            <!-- Assignment scores -->
+            <td v-for="col in assignmentColumns" :key="col"
+                class="px-2 py-1.5 text-center tabular-nums text-sm border-r border-b border-base-200"
                 :class="getPercentageClass(student[col], col)">
               {{ formatCellValue(student[col], col) }}
             </td>
@@ -245,40 +263,28 @@ function goToPage(page) {
       </table>
     </div>
 
-    <!-- Pagination -->
-    <div class="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-gray-50 rounded-lg">
-      <div class="flex items-center gap-3">
-        <span class="text-sm text-gray-600">Show</span>
-        <select v-model="pageSize" @change="currentPage = 1"
-          class="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-          <option :value="25">25</option>
-          <option :value="50">50</option>
-          <option :value="100">100</option>
-        </select>
-        <span class="text-sm text-gray-600">per page</span>
+    <!-- Pagination footer -->
+    <div class="bg-base-100 rounded-b-box border border-t-0 border-base-300 p-3">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-base-content/60">Show</span>
+          <select v-model="pageSize" @change="currentPage = 1" class="select select-bordered select-xs w-20">
+            <option :value="25">25</option>
+            <option :value="50">50</option>
+            <option :value="100">100</option>
+            <option :value="200">200</option>
+          </select>
+          <span class="text-sm text-base-content/60">per page</span>
+        </div>
+        <div class="join">
+          <button @click="goToPage(1)" :disabled="currentPage === 1" class="join-item btn btn-xs">«</button>
+          <button @click="goToPage(currentPage - 1)" :disabled="currentPage === 1" class="join-item btn btn-xs">‹</button>
+          <span class="join-item btn btn-xs btn-active pointer-events-none">{{ currentPage }} / {{ totalPages || 1 }}</span>
+          <button @click="goToPage(currentPage + 1)" :disabled="currentPage >= totalPages" class="join-item btn btn-xs">›</button>
+          <button @click="goToPage(totalPages)" :disabled="currentPage >= totalPages" class="join-item btn btn-xs">»</button>
+        </div>
+        <span class="badge badge-ghost badge-sm">{{ filteredStudents.length }} students</span>
       </div>
-      <div class="flex items-center gap-2">
-        <button @click="goToPage(1)" :disabled="currentPage === 1"
-          class="px-3 py-2 text-sm border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white transition bg-white">
-          First
-        </button>
-        <button @click="goToPage(currentPage - 1)" :disabled="currentPage === 1"
-          class="px-3 py-2 text-sm border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white transition bg-white">
-          Prev
-        </button>
-        <span class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg">
-          {{ currentPage }} / {{ totalPages }}
-        </span>
-        <button @click="goToPage(currentPage + 1)" :disabled="currentPage >= totalPages"
-          class="px-3 py-2 text-sm border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white transition bg-white">
-          Next
-        </button>
-        <button @click="goToPage(totalPages)" :disabled="currentPage >= totalPages"
-          class="px-3 py-2 text-sm border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white transition bg-white">
-          Last
-        </button>
-      </div>
-      <span class="text-sm text-gray-500 font-medium">{{ filteredStudents.length }} total students</span>
     </div>
   </div>
 </template>
