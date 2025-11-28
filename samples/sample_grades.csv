@@ -1,0 +1,8 @@
+Student,ID,SIS User ID,SIS Login ID,Section,Assignment 1,Assignment 2,Quiz 1,Midterm Exam,Final Exam,Current Score,Final Score
+    Points Possible,,,,,(100),(100),(50),(100),(200),,
+"Student, Test A",12345,TA001,ta001@example.edu,Section 001,95,88,45,92,185,90.5,90.5
+"Student, Test B",12346,TB002,tb002@example.edu,Section 001,78,92,38,85,165,82.3,82.3
+"Student, Test C",12347,TC003,tc003@example.edu,Section 002,100,100,50,98,195,98.2,98.2
+"Student, Test D",12348,TD004,td004@example.edu,Section 002,65,70,30,72,140,68.5,68.5
+"Student, Test E",12349,TE005,te005@example.edu,Section 001,88,85,42,88,175,86.4,86.4
+
