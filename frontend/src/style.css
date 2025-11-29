@@ -3,25 +3,59 @@
 @tailwind utilities;
 
 :root {
-  --app-radius: 14px;
-  --app-shadow: 0 14px 40px rgba(15, 23, 42, 0.08);
-  --app-surface: linear-gradient(180deg, #f8fafc 0%, #eef2ff 50%, #f8fafc 100%);
-  --app-focus: #2563eb;
-  --app-selection: #dbeafe;
-  --app-font: "Manrope", "Segoe UI", "Helvetica Neue", system-ui, -apple-system, sans-serif;
+  --color-bg: hsl(215, 32%, 96%);
+  --color-surface: #ffffff;
+  --color-primary: #2563eb;
+  --color-primary-strong: #1d4ed8;
+  --color-secondary: #0f766e;
+  --color-accent: #f59e0b;
+  --color-muted: #64748b;
+  --color-border: #e2e8f0;
+  --color-shadow: rgba(15, 23, 42, 0.06);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 20px;
+  --text-xl: 24px;
 }
 
 body {
-  font-family: var(--app-font);
-  background: var(--app-surface);
-  min-height: 100vh;
+  background: var(--color-bg);
+  color: #0f172a;
 }
 
-::selection {
-  background: var(--app-selection);
+/* Unified focus halo for clickable elements */
+button:focus-visible,
+[role='button']:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
-:focus-visible {
-  outline: 2px solid var(--app-focus);
-  outline-offset: 3px;
+/* Custom Scrollbar for Webkit */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-base-300 rounded-full transition-colors;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
 }
