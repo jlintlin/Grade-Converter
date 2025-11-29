@@ -44,10 +44,8 @@ case "$COMMAND" in
         print_status "Services started!"
         echo ""
         echo "  Frontend: https://localhost:5173"
-        echo "  Backend:  https://localhost:8000"
-        echo "  API Docs: https://localhost:8000/docs"
-        echo ""
-        echo "If your browser shows 'Not secure', run scripts/dev-cert-setup.sh once to install a trusted local cert, then rerun: ./start.sh rebuild"
+        echo "  Backend:  http://localhost:8000"
+        echo "  API Docs: http://localhost:8000/docs"
         echo ""
         ;;
     "down"|"stop")

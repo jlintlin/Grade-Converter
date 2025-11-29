@@ -11,7 +11,7 @@ Local-first web app to turn Canvas gradebook exports into a template-aligned CSV
 ## Run (Docker only)
 ```bash
 # From repo root
-./start.sh up          # builds and starts frontend (5173) + backend (8000) over HTTPS
+./start.sh up          # builds and starts frontend (5173) + backend (8000)
 ./start.sh down        # stop services
 
 # Frontend build check
@@ -19,13 +19,6 @@ cd config && docker compose run --rm frontend npm run build
 
 # Backend tests (none yet; add under backend/)
 cd config && docker compose run --rm backend pytest -q
-```
-
-### HTTPS certs (local trust)
-We ship `certs/server.crt/key` mounts. To remove browser “Not secure” warnings locally:
-```bash
-scripts/dev-cert-setup.sh   # requires mkcert installed
-./start.sh rebuild
 ```
 
 ## Development flow
@@ -52,4 +45,3 @@ scripts/dev-cert-setup.sh   # requires mkcert installed
 ## Privacy
 - CSVs processed in memory only.
 - Sessions cleared on server restart or timeout.
-
